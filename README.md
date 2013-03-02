@@ -1,5 +1,5 @@
-README
-======
+django-pubsub-couch
+===================
 
 This is a Django PubSubHubbub module using CouchdB as a backend.
 

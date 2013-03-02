@@ -1,6 +1,6 @@
 # Copyright 2009 - Participatory Culture Foundation
 #
-# This file is part of djpubsubhubbub.
+# This file is part of django-pubsub-couch.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions

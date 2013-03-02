@@ -1,6 +1,6 @@
 # Copyright 2009 - Participatory Culture Foundation
 #
-# This file is part of djpubsubhubbub.
+# This file is part of django-pubsub-couch.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -29,8 +29,8 @@ import urllib2
 from django.core.urlresolvers import reverse
 from django.test import TestCase
 
-from djpubsubhubbub.models import Subscription, SubscriptionManager
-from djpubsubhubbub.signals import pre_subscribe, verified, updated
+from django_pubsub_couch.models import Subscription, SubscriptionManager
+from django_pubsub_couch.signals import pre_subscribe, verified, updated
 
 class MockResponse(object):
     def __init__(self, status, data=None):
@@ -48,7 +48,7 @@ class MockResponse(object):
 
 class PSHBTestBase:
 
-    urls = 'djpubsubhubbub.urls'
+    urls = 'django_pubsub_couch.urls'
 
     def setUp(self):
         self._old_send_request = SubscriptionManager._send_request

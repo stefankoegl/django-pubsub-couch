@@ -1,6 +1,6 @@
 # Copyright 2009 - Participatory Culture Foundation
 #
-# This file is part of djpubsubhubbub.
+# This file is part of django-pubsub-couch.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ from django.contrib.sites.models import RequestSite
 from django.core.urlresolvers import reverse, Resolver404
 from hashlib import sha1
 
-from djpubsubhubbub import signals
+from django_pubsub_couch import signals
 
 DEFAULT_LEASE_SECONDS = 2592000 # 30 days in seconds
 

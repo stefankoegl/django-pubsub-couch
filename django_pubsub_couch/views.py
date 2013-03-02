@@ -1,6 +1,6 @@
 # Copyright 2009 - Participatory Culture Foundation
 #
-# This file is part of djpubsubhubbub.
+# This file is part of django-pubsub-couch.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -29,8 +29,8 @@ import feedparser
 from django.http import HttpResponse, Http404
 from django.shortcuts import get_object_or_404
 
-from djpubsubhubbub.models import Subscription
-from djpubsubhubbub.signals import verified, updated
+from django_pubsub_couch.models import Subscription
+from django_pubsub_couch.signals import verified, updated
 
 
 def get_subscription_or_404(_id, topic=None, verify_token=None):

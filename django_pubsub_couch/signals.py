@@ -1,6 +1,6 @@
 # Copyright 2009 - Participatory Culture Foundation
 #
-# This file is part of djpubsubhubbub.
+# This file is part of django-pubsub-couch.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -23,7 +23,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from django.conf.urls.defaults import *
+from django.dispatch import Signal
 
-urlpatterns = patterns('djpubsubhubbub.views',
-                       (r'^([-0-9a-f]+)/$', 'callback', {}, 'pubsubhubbub_callback'))
+pre_subscribe = Signal(providing_args=['created'])
+verified = Signal()
+updated = Signal(providing_args=['update'])
