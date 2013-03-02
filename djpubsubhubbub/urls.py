@@ -26,4 +26,4 @@
 from django.conf.urls.defaults import *
 
 urlpatterns = patterns('djpubsubhubbub.views',
-                       (r'^(\d+)/$', 'callback', {}, 'pubsubhubbub_callback'))
+                       (r'^([-0-9a-f]+)/$', 'callback', {}, 'pubsubhubbub_callback'))

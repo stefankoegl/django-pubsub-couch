@@ -32,6 +32,24 @@ from django.shortcuts import get_object_or_404
 from djpubsubhubbub.models import Subscription
 from djpubsubhubbub.signals import verified, updated
 
+
+def get_subscription_or_404(_id, topic=None, verify_token=None):
+
+    subscription = Subscription.objects.get(pk=_id)
+
+    if not subscription:
+        raise Http404
+
+    if topic is not None and subscription.topic != topic:
+        raise Http404
+
+    if subscription.verify_token != verify_token:
+        raise Http404
+
+    return subscription
+
+
+
 def callback(request, pk):
     if request.method == 'GET':
         mode = request.GET['hub.mode']
@@ -43,17 +61,14 @@ def callback(request, pk):
         if mode == 'subscribe':
             if not verify_token.startswith('subscribe'):
                 raise Http404
-            subscription = get_object_or_404(Subscription,
-                                             pk=pk,
-                                             topic=topic,
-                                             verify_token=verify_token)
+            subscription = get_subscription_or_404(pk, topic, verify_token)
             subscription.verified = True
             subscription.set_expiration(int(lease_seconds))
             verified.send(sender=subscription)
 
         return HttpResponse(challenge, content_type='text/plain')
     elif request.method == 'POST':
-        subscription = get_object_or_404(Subscription, pk=pk)
+        subscription = get_subscription_or_404(pk)
         parsed = feedparser.parse(request.raw_post_data)
         if parsed.feed.links: # single notification
             hub_url = subscription.hub

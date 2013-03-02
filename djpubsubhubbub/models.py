@@ -28,20 +28,66 @@ import feedparser
 from urllib import urlencode
 import urllib2
 
+from couchdbkit.ext.django.schema import *
+from couchdbkit import ResourceConflict
+
 from django.conf import settings
-from django.contrib.sites.models import Site
+from django.contrib.sites.models import RequestSite
 from django.core.urlresolvers import reverse, Resolver404
-from django.db import models
-from django.utils.hashcompat import sha_constructor
+from hashlib import sha1
 
 from djpubsubhubbub import signals
 
 DEFAULT_LEASE_SECONDS = 2592000 # 30 days in seconds
 
-class SubscriptionManager(models.Manager):
+class SubscriptionManager(object):
+
+    def get_or_create(self, hub, topic):
+
+        myid = '%s-%s' % (sha1(hub).hexdigest(), sha1(topic).hexdigest())
+
+        try:
+            subscription = Subscription(_id=myid, hub=hub, topic=topic)
+            subscription.save()
+            created = True
+
+        except ResourceConflict:
+            subscription = Subscription.get(myid)
+            created = False
+
+        return subscription, created
+
+
+    def get(self, **kwargs):
+        if 'pk' in kwargs:
+            pk = kwargs['pk']
+        else:
+            topic, hub = kwargs['topic'], kwargs['hub']
+            pk = '%s-%s' % (sha1(hub).hexdigest(), sha1(topic).hexdigest())
+        subscription = Subscription.get(pk)
+        return subscription
+
+
+    def delete(self, **kwargs):
+        if 'pk' in kwargs:
+            pk = kwargs['pk']
+        else:
+            topic, hub = kwargs['topic'], kwargs['hub']
+            pk = '%s-%s' % (sha1(hub).hexdigest(), sha1(topic).hexdigest())
+        subscription = Subscription.get(pk)
+        subscription.delete()
+
+
+    def create(self, **kwargs):
+        topic, hub = kwargs['topic'], kwargs['hub']
+        myid = '%s-%s' % (sha1(hub).hexdigest(), sha1(topic).hexdigest())
+        subscription = Subscription(_id=myid, **kwargs)
+        subscription.save()
+        return subscription
+
 
     def subscribe(self, topic, hub=None, callback=None,
-                  lease_seconds=None):
+                  lease_seconds=None, request=None):
         if hub is None:
             hub = self._get_hub(topic)
 
@@ -53,21 +99,24 @@ class SubscriptionManager(models.Manager):
             lease_seconds = getattr(settings, 'PUBSUBHUBBUB_LEASE_SECONDS',
                                    DEFAULT_LEASE_SECONDS)
 
-        subscription, created = self.get_or_create(
-            hub=hub, topic=topic)
+        subscription, created = self.get_or_create(hub, topic)
+
         signals.pre_subscribe.send(sender=subscription, created=created)
         subscription.set_expiration(lease_seconds)
 
         if callback is None:
             try:
                 callback_path = reverse('pubsubhubbub_callback',
-                                        args=(subscription.pk,))
+                                        args=(subscription._id,))
             except Resolver404:
                 raise TypeError(
                     'callback cannot be None if there is not a reverable URL')
             else:
-                callback = 'http://' + Site.objects.get_current() + \
-                    callback_path
+                if not request:
+                    raise TypeError(
+                        'either callback or request must be provided')
+                site = RequestSite(request)
+                callback = 'http://' + site.domain + callback_path
 
         response = self._send_request(hub, {
                 'mode': 'subscribe',
@@ -112,20 +161,15 @@ class SubscriptionManager(models.Manager):
         encoded_data = urlencode(list(data_generator()))
         return urllib2.urlopen(url, encoded_data)
 
-class Subscription(models.Model):
+class Subscription(Document):
 
-    hub = models.URLField()
-    topic = models.URLField()
-    verified = models.BooleanField(default=False)
-    verify_token = models.CharField(max_length=60)
-    lease_expires = models.DateTimeField(default=datetime.now)
+    hub = StringProperty()
+    topic = StringProperty()
+    verified = BooleanProperty()
+    verify_token = StringProperty()
+    lease_expires = DateTimeProperty(default=datetime.now)
 
     objects = SubscriptionManager()
-
-    # class Meta:
-    #     unique_together = [
-    #         ('hub', 'topic')
-    #         ]
 
     def set_expiration(self, lease_seconds):
         self.lease_expires = datetime.now() + timedelta(
@@ -133,10 +177,10 @@ class Subscription(models.Model):
         self.save()
 
     def generate_token(self, mode):
-        assert self.pk is not None, \
+        assert self._id is not None, \
             'Subscription must be saved before generating token'
-        token = mode[:20] + sha_constructor('%s%i%s' % (
-                settings.SECRET_KEY, self.pk, mode)).hexdigest()
+        token = mode[:20] + sha1('%s%s%s' % (
+                settings.SECRET_KEY, self._id, mode)).hexdigest()
         self.verify_token = token
         self.save()
         return token
@@ -151,3 +195,11 @@ class Subscription(models.Model):
 
     def __str__(self):
         return str(unicode(self))
+
+    @property
+    def pk(self):
+        return self._id
+
+
+    def __eq__(self, other):
+        return (self._id is not None) and (self._id == other._id)

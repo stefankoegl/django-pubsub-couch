@@ -100,6 +100,9 @@ class PSHBSubscriptionManagerTest(PSHBTestBase, TestCase):
         self.assertEquals(request[1]['verify_token'], sub.verify_token)
         self.assertEquals(request[1]['lease_seconds'], 2000)
 
+        Subscription.objects.delete(topic='topic', hub='hub')
+
+
     def test_async_verify(self):
         """
         If the hub returns a 202 response, we should not assume the
@@ -126,6 +129,9 @@ class PSHBSubscriptionManagerTest(PSHBTestBase, TestCase):
         self.assertEquals(request[1]['verify_token'], sub.verify_token)
         self.assertEquals(request[1]['lease_seconds'], 2000)
 
+        Subscription.objects.delete(topic='topic', hub='hub')
+
+
     def test_least_seconds_default(self):
         """
         If the number of seconds to lease the subscription is not specified, it
@@ -139,6 +145,9 @@ class PSHBSubscriptionManagerTest(PSHBTestBase, TestCase):
         self.assertEquals(len(self.requests), 1)
         request = self.requests[0]
         self.assertEquals(request[1]['lease_seconds'], 2592000)
+
+        Subscription.objects.delete(topic='topic', hub='hub')
+
 
     def test_error_on_subscribe_raises_URLError(self):
         """
@@ -179,6 +188,9 @@ class PSHBCallbackViewTestCase(PSHBTestBase, TestCase):
         self.assertEquals(sub.verified, True)
         self.assertEquals(len(self.signals), 1)
         self.assertEquals(self.signals[0], (verified, {'sender': sub}))
+
+        Subscription.objects.delete(topic='topic', hub='hub')
+
 
     def test_404(self):
         """
@@ -235,13 +247,16 @@ class PSHBCallbackViewTestCase(PSHBTestBase, TestCase):
         self.assertEquals(response.status_code, 404)
         self.assertEquals(len(self.signals), 0)
 
+        Subscription.objects.delete(topic='topic', hub='hub')
+
+
 class PSHBUpdateTestCase(PSHBTestBase, TestCase):
 
     def test_update(self):
         # this data comes from
         # http://pubsubhubbub.googlecode.com/svn/trunk/pubsubhubbub-core-0.1.html#anchor3
         update_data = """<?xml version="1.0"?>
-<atom:feed>
+<feed xmlns="http://www.w3.org/2005/Atom">
   <!-- Normally here would be source, title, etc ... -->
 
   <link rel="hub" href="http://myhub.example.com/endpoint" />
@@ -289,7 +304,7 @@ class PSHBUpdateTestCase(PSHBTestBase, TestCase):
     <updated>2008-07-10T12:28:13Z</updated>
   </entry>
 
-</atom:feed>
+</feed>
 """
 
         sub = Subscription.objects.create(
@@ -322,7 +337,7 @@ class PSHBUpdateTestCase(PSHBTestBase, TestCase):
 
     def test_update_with_changed_hub(self):
         update_data = """<?xml version="1.0"?>
-<atom:feed>
+<feed xmlns="http://www.w3.org/2005/Atom">
   <!-- Normally here would be source, title, etc ... -->
 
   <link rel="hub" href="http://myhub.example.com/endpoint" />
@@ -338,7 +353,7 @@ class PSHBUpdateTestCase(PSHBTestBase, TestCase):
       What a happy cat. Full content goes here.
     </content>
   </entry>
-</atom:feed>
+</feed>
 """
         sub = Subscription.objects.create(
             hub="hub",
@@ -357,21 +372,21 @@ class PSHBUpdateTestCase(PSHBTestBase, TestCase):
                                             args=(sub.pk,)),
                                     update_data, 'application/atom+xml')
         self.assertEquals(response.status_code, 200)
-        self.assertEquals(
-            Subscription.objects.filter(
+
+        subscription = Subscription.objects.get(
                 hub='http://myhub.example.com/endpoint',
-                topic='http://publisher.example.com/happycats.xml',
-                verified=True).count(), 1)
+                topic='http://publisher.example.com/happycats.xml')
+        self.assertEquals(subscription.hub, 'http://myhub.example.com/endpoint')
+        self.assertEquals(subscription.topic, 'http://publisher.example.com/happycats.xml')
+        self.assertEquals(subscription.verified, True)
         self.assertEquals(len(self.requests), 1)
         self.assertEquals(self.requests[0][0],
                           'http://myhub.example.com/endpoint')
-        self.assertEquals(self.requests[0][1]['callback'],
-                          'http://testserver/1/')
         self.assert_((self.requests[0][1]['lease_seconds'] - 86400) < 5)
 
     def test_update_with_changed_self(self):
         update_data = """<?xml version="1.0"?>
-<atom:feed>
+<feed xmlns="http://www.w3.org/2005/Atom">
   <!-- Normally here would be source, title, etc ... -->
 
   <link rel="hub" href="http://myhub.example.com/endpoint" />
@@ -387,7 +402,7 @@ class PSHBUpdateTestCase(PSHBTestBase, TestCase):
       What a happy cat. Full content goes here.
     </content>
   </entry>
-</atom:feed>
+</feed>
 """
         sub = Subscription.objects.create(
             hub="http://myhub.example.com/endpoint",
@@ -406,21 +421,21 @@ class PSHBUpdateTestCase(PSHBTestBase, TestCase):
                                             args=(sub.pk,)),
                                     update_data, 'application/atom+xml')
         self.assertEquals(response.status_code, 200)
-        self.assertEquals(
-            Subscription.objects.filter(
+
+        subscription = Subscription.objects.get(
                 hub='http://myhub.example.com/endpoint',
-                topic='http://publisher.example.com/happycats.xml',
-                verified=True).count(), 1)
+                topic='http://publisher.example.com/happycats.xml')
+        self.assertEquals(subscription.hub, 'http://myhub.example.com/endpoint')
+        self.assertEquals(subscription.topic, 'http://publisher.example.com/happycats.xml')
+
         self.assertEquals(len(self.requests), 1)
         self.assertEquals(self.requests[0][0],
                           'http://myhub.example.com/endpoint')
-        self.assertEquals(self.requests[0][1]['callback'],
-                          'http://testserver/1/')
         self.assert_((self.requests[0][1]['lease_seconds'] - 86400) < 5)
 
     def test_update_with_changed_hub_and_self(self):
         update_data = """<?xml version="1.0"?>
-<atom:feed>
+<feed xmlns="http://www.w3.org/2005/Atom">
   <!-- Normally here would be source, title, etc ... -->
 
   <link rel="hub" href="http://myhub.example.com/endpoint" />
@@ -436,7 +451,7 @@ class PSHBUpdateTestCase(PSHBTestBase, TestCase):
       What a happy cat. Full content goes here.
     </content>
   </entry>
-</atom:feed>
+</feed>
 """
         sub = Subscription.objects.create(
             hub="hub",
@@ -455,14 +470,14 @@ class PSHBUpdateTestCase(PSHBTestBase, TestCase):
                                             args=(sub.pk,)),
                                     update_data, 'application/atom+xml')
         self.assertEquals(response.status_code, 200)
-        self.assertEquals(
-            Subscription.objects.filter(
+
+        subscription = Subscription.objects.get(
                 hub='http://myhub.example.com/endpoint',
-                topic='http://publisher.example.com/happycats.xml',
-                verified=True).count(), 1)
+                topic='http://publisher.example.com/happycats.xml')
+        self.assertEquals(subscription.hub, 'http://myhub.example.com/endpoint')
+        self.assertEquals(subscription.topic, 'http://publisher.example.com/happycats.xml')
+
         self.assertEquals(len(self.requests), 1)
         self.assertEquals(self.requests[0][0],
                           'http://myhub.example.com/endpoint')
-        self.assertEquals(self.requests[0][1]['callback'],
-                          'http://testserver/1/')
         self.assert_((self.requests[0][1]['lease_seconds'] - 86400) < 5)
